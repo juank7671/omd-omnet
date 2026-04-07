@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OMD · Herramientas OMNET</title>
+<link href="https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;600;700;900&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0e1130; --surface: #161a3a; --surface2: #1e2248;
+  --border: #2a3060; --text: #ffffff; --muted: #8890c0;
+  --red: #e8302a; --yellow: #f5a623; --blue: #3b5bdb;
+  --mono: 'JetBrains Mono', monospace; --sans: 'Nunito Sans', sans-serif;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:var(--bg); color:var(--text); font-family:var(--sans); min-height:100vh; display:flex; flex-direction:column; }
+
+.header-bar {
+  background:var(--surface); border-bottom:3px solid var(--red);
+  padding:0 40px; display:flex; align-items:center; justify-content:space-between; height:64px;
+}
+.omd-logo { font-weight:900; font-size:24px; letter-spacing:-1px; }
+.omd-logo span { color:var(--red); }
+.header-tag { font-family:var(--mono); font-size:11px; color:var(--muted); letter-spacing:2px; text-transform:uppercase; }
+
+.hero {
+  background:var(--surface); border-bottom:1px solid var(--border);
+  padding:60px 40px 48px; position:relative; overflow:hidden;
+}
+.hero::after {
+  content:'omd'; position:absolute; right:-10px; bottom:-40px;
+  font-size:200px; font-weight:900; color:rgba(255,255,255,0.025);
+  line-height:1; pointer-events:none;
+}
+.hero-shapes {
+  position:absolute; right:40px; top:50%; transform:translateY(-50%);
+  display:flex; gap:14px; align-items:center;
+}
+.shape { border-radius:50%; flex-shrink:0; }
+.eyebrow { font-family:var(--mono); font-size:11px; letter-spacing:3px; color:var(--red); text-transform:uppercase; margin-bottom:14px; }
+h1 { font-size:clamp(28px,5vw,52px); font-weight:900; line-height:1.1; letter-spacing:-1px; }
+h1 em { font-style:normal; color:var(--red); }
+.hero-sub { color:var(--muted); font-size:15px; margin-top:12px; max-width:520px; line-height:1.7; }
+
+.app { max-width:1100px; margin:0 auto; padding:48px 40px; flex:1; }
+
+.tools-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:20px; }
+
+.tool-card {
+  background:var(--surface); border:1px solid var(--border);
+  border-radius:8px; padding:32px; text-decoration:none; color:var(--text);
+  transition:all 0.2s; position:relative; overflow:hidden; display:block;
+}
+.tool-card::before {
+  content:''; position:absolute; top:0; left:0; right:0; height:3px;
+  background:var(--red); transform:scaleX(0); transition:transform 0.2s; transform-origin:left;
+}
+.tool-card:hover { border-color:var(--red); transform:translateY(-2px); background:rgba(232,48,42,0.05); }
+.tool-card:hover::before { transform:scaleX(1); }
+
+.tool-icon { font-size:36px; margin-bottom:16px; display:block; }
+.tool-name { font-size:18px; font-weight:900; margin-bottom:8px; }
+.tool-desc { font-size:13px; color:var(--muted); line-height:1.6; margin-bottom:20px; }
+.tool-tag {
+  display:inline-flex; align-items:center; gap:6px;
+  font-family:var(--mono); font-size:10px; text-transform:uppercase; letter-spacing:1px;
+  background:rgba(232,48,42,0.1); color:var(--red); border:1px solid rgba(232,48,42,0.25);
+  padding:4px 10px; border-radius:3px;
+}
+.tool-arrow { position:absolute; bottom:24px; right:24px; font-size:20px; color:var(--border); transition:color 0.2s; }
+.tool-card:hover .tool-arrow { color:var(--red); }
+
+.sheet-banner {
+  background:var(--surface2); border:1px solid var(--border); border-left:3px solid var(--yellow);
+  border-radius:4px; padding:14px 20px; margin-bottom:32px;
+  display:flex; align-items:center; gap:12px; flex-wrap:wrap;
+}
+.sheet-banner-text { font-family:var(--mono); font-size:12px; color:var(--muted); flex:1; }
+.sheet-banner-text strong { color:var(--yellow); }
+.sheet-link { font-family:var(--mono); font-size:11px; color:var(--blue); text-decoration:none; padding:5px 12px; border:1px solid var(--blue); border-radius:3px; white-space:nowrap; }
+.sheet-link:hover { background:var(--blue); color:#fff; }
+
+.section-title { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:2px; color:var(--muted); margin-bottom:20px; display:flex; align-items:center; gap:10px; }
+.section-title::after { content:''; flex:1; height:1px; background:var(--border); }
+
+.footer { border-top:1px solid var(--border); padding:20px 40px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; }
+.footer-logo { font-weight:900; font-size:18px; color:var(--muted); }
+.footer-logo span { color:var(--red); }
+.footer-note { font-family:var(--mono); font-size:11px; color:var(--border); }
+</style>
+</head>
+<body>
+
+<div class="header-bar">
+  <div class="omd-logo">omd<span>.</span></div>
+  <div class="header-tag">Herramientas · OMNET Colombia</div>
+</div>
+
+<div class="hero">
+  <div class="eyebrow">Suite de herramientas internas</div>
+  <h1>OMNET<br><em>Tools</em></h1>
+  <p class="hero-sub">Herramientas para análisis, validación y auditoría de inversión en medios vía plataforma OMNET.</p>
+  <div class="hero-shapes">
+    <div class="shape" style="width:64px;height:64px;background:var(--red);opacity:0.85"></div>
+    <div class="shape" style="width:44px;height:44px;background:var(--yellow);opacity:0.85"></div>
+    <div class="shape" style="width:54px;height:54px;background:var(--blue);opacity:0.7"></div>
+  </div>
+</div>
+
+<div class="app">
+
+  <div class="sheet-banner">
+    <span style="font-size:18px">📋</span>
+    <span class="sheet-banner-text">
+      <strong>Tabla de Equivalencias</strong> — La tabla maestra de proveedores vive en Google Sheets.
+      Los editores autorizados pueden modificarla directamente desde ahí.
+    </span>
+    <a class="sheet-link" href="https://docs.google.com/spreadsheets/d/e/2PACX-1vRzhJyOf_Vel08nV8EGAA4HCSbjEpnlyrjkNVKUI4tQMCBvDOODhb6X6Ma1G7perqDqaotcxQoL1wcz/pubhtml" target="_blank">→ Abrir en Sheets</a>
+  </div>
+
+  <div class="section-title">Herramientas disponibles</div>
+
+  <div class="tools-grid">
+
+    <a class="tool-card" href="validacion_omnet.html">
+      <span class="tool-icon">✅</span>
+      <div class="tool-name">Validación de Cuotas OMNET</div>
+      <div class="tool-desc">Sube un flow de medios y valida automáticamente si cada proveedor cumple, incumple o supera su cuota OMNET. La tabla de equivalencias se carga sola desde Google Sheets.</div>
+      <span class="tool-tag">★ Principal</span>
+      <div class="tool-arrow">→</div>
+    </a>
+
+    <a class="tool-card" href="https://docs.google.com/spreadsheets/d/e/2PACX-1vRzhJyOf_Vel08nV8EGAA4HCSbjEpnlyrjkNVKUI4tQMCBvDOODhb6X6Ma1G7perqDqaotcxQoL1wcz/pubhtml" target="_blank">
+      <span class="tool-icon">🗂️</span>
+      <div class="tool-name">Tabla de Equivalencias</div>
+      <div class="tool-desc">Mapeo de proveedores entre los flows y el portafolio OMNET. Acceso restringido a editores autorizados — cualquier cambio se refleja automáticamente en el validador.</div>
+      <span class="tool-tag">Solo editores · Google Sheets</span>
+      <div class="tool-arrow">↗</div>
+    </a>
+
+    <a class="tool-card" href="flow_medios_agente.html">
+      <span class="tool-icon">📊</span>
+      <div class="tool-name">Análisis de Flow de Medios</div>
+      <div class="tool-desc">Lee cualquier flow (.xlsm/.xlsx) con hoja BASE_UNIFICADA y muestra la inversión por medio, vehículo, proveedor, OMNET y campaña.</div>
+      <span class="tool-tag">Análisis</span>
+      <div class="tool-arrow">→</div>
+    </a>
+
+  </div>
+
+</div>
+
+<div class="footer">
+  <div class="footer-logo">omd<span>.</span></div>
+  <div class="footer-note">Confidential · OMD Colombia · v1.0</div>
+</div>
+
+</body>
+</html>

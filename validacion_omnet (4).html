@@ -1,0 +1,788 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OMD · Validación OMNET</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;600;700;900&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:       #0e1130;
+  --surface:  #161a3a;
+  --surface2: #1e2248;
+  --border:   #2a3060;
+  --text:     #ffffff;
+  --muted:    #8890c0;
+  --red:      #e8302a;
+  --yellow:   #f5a623;
+  --blue:     #3b5bdb;
+  --ok:       #2ecc71;
+  --ok-bg:    rgba(46,204,113,0.12);
+  --ok-bd:    rgba(46,204,113,0.35);
+  --warn:     #f5a623;
+  --warn-bg:  rgba(245,166,35,0.12);
+  --warn-bd:  rgba(245,166,35,0.35);
+  --err:      #e8302a;
+  --err-bg:   rgba(232,48,42,0.12);
+  --err-bd:   rgba(232,48,42,0.35);
+  --none:     #8890c0;
+  --none-bg:  rgba(136,144,192,0.1);
+  --none-bd:  rgba(136,144,192,0.25);
+  --exceso:     #a855f7;
+  --exceso-bg:  rgba(168,85,247,0.12);
+  --exceso-bd:  rgba(168,85,247,0.35);
+  --mono: 'JetBrains Mono', monospace;
+  --sans: 'Nunito Sans', sans-serif;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:var(--bg); color:var(--text); font-family:var(--sans); min-height:100vh; }
+
+/* ─── HEADER ─── */
+.header-bar {
+  background: var(--surface);
+  border-bottom: 3px solid var(--red);
+  padding: 0 40px;
+  display: flex; align-items: center; justify-content: space-between;
+  height: 64px;
+}
+.omd-logo {
+  font-family: var(--sans); font-weight: 900; font-size: 24px;
+  color: var(--text); letter-spacing: -1px;
+}
+.omd-logo span { color: var(--red); }
+.header-tag { font-family: var(--mono); font-size: 11px; color: var(--muted); letter-spacing: 2px; text-transform: uppercase; }
+
+/* ─── HERO ─── */
+.hero {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 40px 40px 32px;
+  position: relative; overflow: hidden;
+}
+.hero::after {
+  content: 'omd';
+  position: absolute; right: -10px; bottom: -30px;
+  font-size: 160px; font-weight: 900; color: rgba(255,255,255,0.03);
+  line-height: 1; pointer-events: none; user-select: none;
+}
+.hero-eyebrow { font-family: var(--mono); font-size: 11px; letter-spacing: 3px; color: var(--red); text-transform: uppercase; margin-bottom: 12px; }
+.hero h1 { font-size: clamp(26px,4vw,44px); font-weight: 900; line-height: 1.1; }
+.hero h1 em { font-style: normal; color: var(--red); }
+.hero-sub { color: var(--muted); font-size: 14px; margin-top: 8px; max-width: 560px; line-height: 1.6; }
+.hero-shapes {
+  position: absolute; right: 40px; top: 50%; transform: translateY(-50%);
+  display: flex; gap: 12px; align-items: center;
+}
+.shape { border-radius: 50%; flex-shrink: 0; }
+@media(max-width:700px){ .hero-shapes { display:none; } }
+
+/* ─── APP ─── */
+.app { max-width: 1240px; margin: 0 auto; padding: 36px 40px 60px; }
+
+/* ─── UPLOAD ─── */
+.upload-zone { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; }
+@media(max-width:640px){ .upload-zone { grid-template-columns:1fr; } }
+.upload-card {
+  border: 2px dashed var(--border); border-radius: 6px; padding: 24px;
+  cursor: pointer; transition: all 0.2s; background: var(--surface);
+}
+.upload-card:hover { border-color: var(--red); background: rgba(232,48,42,0.05); }
+.upload-card.loaded { border-style: solid; border-color: var(--ok); background: var(--ok-bg); }
+.upload-card input { display: none; }
+.uc-icon { font-size: 26px; margin-bottom: 8px; }
+.uc-label { font-size: 13px; font-weight: 700; margin-bottom: 4px; }
+.uc-sub { font-family: var(--mono); font-size: 11px; color: var(--muted); }
+.uc-ok { font-family: var(--mono); font-size: 11px; color: var(--ok); margin-top: 6px; }
+
+.btn-run {
+  background: var(--red); color: #fff; border: none;
+  font-family: var(--sans); font-size: 14px; font-weight: 900;
+  padding: 14px 36px; border-radius: 4px; cursor: pointer;
+  transition: all 0.2s; letter-spacing: 0.5px;
+  display: inline-flex; align-items: center; gap: 8px;
+}
+.btn-run:hover { background: #c02020; transform: translateY(-1px); }
+.btn-run:disabled { background: var(--border); color: var(--muted); cursor: not-allowed; transform: none; }
+
+/* Column selector */
+.col-btn {
+  background: var(--surface2); border: 1px solid var(--border);
+  color: var(--muted); font-family: var(--sans); font-size: 12px; font-weight: 700;
+  padding: 6px 14px; border-radius: 3px; cursor: pointer; transition: all 0.15s;
+}
+.col-btn.active { background: var(--red); border-color: var(--red); color: #fff; }
+.col-btn:hover:not(.active) { border-color: var(--red); color: var(--text); }
+
+.progress-line { height: 3px; background: var(--border); margin: 20px 0; overflow: hidden; display: none; }
+.progress-line.visible { display: block; }
+.progress-fill { height: 100%; background: var(--red); width: 0%; transition: width 0.4s; }
+
+.alert-box { background: var(--err-bg); border: 1px solid var(--err-bd); border-radius: 4px; padding: 12px 16px; font-family: var(--mono); font-size: 12px; color: var(--err); margin-bottom: 16px; display: none; }
+.alert-box.visible { display: block; }
+
+/* ─── SUMMARY CARDS ─── */
+.summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px,1fr)); gap: 2px; margin-bottom: 2px; }
+.sc {
+  background: var(--surface); padding: 20px;
+  border-top: 3px solid transparent;
+  transition: border-color 0.2s;
+}
+.sc.ok  { border-top-color: var(--ok); }
+.sc.warn{ border-top-color: var(--warn); }
+.sc.err { border-top-color: var(--err); }
+.sc.none{ border-top-color: var(--border); }
+.sc.info{ border-top-color: var(--red); }
+.sc-label { font-family: var(--mono); font-size: 10px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--muted); margin-bottom: 10px; }
+.sc-val { font-size: 30px; font-weight: 900; letter-spacing: -1px; }
+.sc-val.ok   { color: var(--ok); }
+.sc-val.warn { color: var(--warn); }
+.sc-val.err  { color: var(--err); }
+.sc-val.info { color: var(--red); }
+.sc-sub { font-family: var(--mono); font-size: 11px; color: var(--muted); margin-top: 5px; }
+
+/* ─── SECTION ─── */
+.section { margin-top: 32px; }
+.section-hdr {
+  display: flex; align-items: center; justify-content: space-between;
+  border-bottom: 1px solid var(--border); padding-bottom: 10px; margin-bottom: 16px;
+  flex-wrap: wrap; gap: 10px;
+}
+.section-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 2px; color: var(--muted); }
+
+/* ─── FILTERS ─── */
+.filter-row { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.fbtn {
+  background: var(--surface2); border: 1px solid var(--border);
+  color: var(--muted); font-family: var(--sans); font-size: 11px; font-weight: 700;
+  padding: 5px 12px; border-radius: 3px; cursor: pointer; transition: all 0.15s;
+}
+.fbtn.active.all  { background: var(--text); color: var(--bg); border-color: var(--text); }
+.fbtn.active.ok   { background: var(--ok-bg); border-color: var(--ok); color: var(--ok); }
+.fbtn.active.warn { background: var(--warn-bg); border-color: var(--warn); color: var(--warn); }
+.fbtn.active.err  { background: var(--err-bg); border-color: var(--err); color: var(--err); }
+.fbtn.active.none { background: var(--none-bg); border-color: var(--none-bd); color: var(--none); }
+.fbtn.active.cerca{ background: rgba(245,166,35,0.15); border-color: var(--yellow); color: var(--yellow); }
+.fbtn.active.exceso{ background: var(--exceso-bg); border-color: var(--exceso-bd); color: var(--exceso); }
+.search-box {
+  background: var(--surface); border: 1px solid var(--border); color: var(--text);
+  font-family: var(--mono); font-size: 12px; padding: 5px 10px; border-radius: 3px; width: 200px;
+  color-scheme: dark;
+}
+.search-box:focus { outline: none; border-color: var(--red); }
+.search-box::placeholder { color: var(--muted); }
+
+/* ─── TABLE ─── */
+.table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th {
+  font-family: var(--mono); font-size: 10px; text-transform: uppercase;
+  letter-spacing: 1px; color: var(--muted); padding: 10px 14px;
+  text-align: left; border-bottom: 2px solid var(--border); white-space: nowrap;
+  background: var(--surface);
+}
+th.num { text-align: right; }
+td { padding: 11px 14px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+tr:hover td { background: rgba(232,48,42,0.04); }
+.num { text-align: right; font-family: var(--mono); font-size: 12px; }
+tr.detail-row { display: none; }
+tr.detail-row.open { display: table-row; }
+
+/* ─── PILLS ─── */
+.pill { display: inline-flex; align-items: center; gap: 4px; border-radius: 3px; padding: 3px 10px; font-size: 11px; font-family: var(--mono); font-weight: 600; white-space: nowrap; }
+.pill.ok   { background: var(--ok-bg);   color: var(--ok);   border: 1px solid var(--ok-bd); }
+.pill.warn { background: var(--warn-bg); color: var(--warn); border: 1px solid var(--warn-bd); }
+.pill.err  { background: var(--err-bg);  color: var(--err);  border: 1px solid var(--err-bd); }
+.pill.none { background: var(--none-bg); color: var(--none); border: 1px solid var(--none-bd); }
+.pill.cerca{ background: rgba(245,166,35,0.15); color: var(--yellow); border: 1px solid rgba(245,166,35,0.4); }
+.pill.exceso{ background: var(--exceso-bg); color: var(--exceso); border: 1px solid var(--exceso-bd); }
+
+/* ─── PROGRESS BAR ─── */
+.pbar-wrap { display: flex; align-items: center; gap: 8px; min-width: 160px; }
+.pbar-bg { height: 6px; flex: 1; background: var(--surface2); border-radius: 2px; overflow: visible; position: relative; }
+.pbar-fill { height: 100%; border-radius: 2px; position: absolute; top: 0; left: 0; }
+.pbar-fill.ok   { background: var(--ok); }
+.pbar-fill.warn { background: var(--warn); }
+.pbar-fill.err  { background: var(--err); }
+.pbar-fill.cerca{ background: var(--yellow); }
+.pbar-fill.none { background: var(--border); }
+.pbar-marker { position: absolute; top: -3px; width: 2px; height: 12px; background: rgba(255,255,255,0.6); border-radius: 1px; }
+.pbar-num { font-family: var(--mono); font-size: 11px; color: var(--muted); width: 38px; text-align: right; flex-shrink: 0; }
+
+/* ─── TAGS ─── */
+.medio-tag { background: var(--surface2); border: 1px solid var(--border); border-radius: 3px; padding: 2px 8px; font-size: 10px; font-family: var(--mono); color: var(--muted); white-space: nowrap; }
+
+/* ─── DETAIL ─── */
+.detail-inner { padding: 16px 20px; background: var(--surface2); border-top: 2px solid var(--red); }
+.detail-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(180px,1fr)); gap: 16px; }
+.di label { font-family: var(--mono); font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); display: block; margin-bottom: 5px; }
+.di span { font-size: 14px; font-weight: 700; }
+.btn-expand { background: none; border: 1px solid var(--border); color: var(--muted); font-family: var(--mono); font-size: 10px; padding: 3px 9px; border-radius: 3px; cursor: pointer; transition: all 0.15s; }
+.btn-expand:hover { border-color: var(--red); color: var(--red); }
+
+.empty-state { padding: 60px; text-align: center; color: var(--muted); font-family: var(--mono); font-size: 13px; }
+.results-area { display: none; }
+.results-area.visible { display: block; }
+
+/* ─── FOOTER ─── */
+.footer { margin-top: 60px; border-top: 1px solid var(--border); padding-top: 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; }
+.footer-logo { font-weight: 900; font-size: 18px; color: var(--muted); }
+.footer-logo span { color: var(--red); }
+.footer-note { font-family: var(--mono); font-size: 11px; color: var(--border); }
+</style>
+</head>
+<body>
+
+<!-- Header bar -->
+<div class="header-bar">
+  <div class="omd-logo">omd<span>.</span></div>
+  <div style="display:flex;align-items:center;gap:20px">
+    <div class="header-tag">Auditoría · Cuotas OMNET · Colombia</div>
+    <a href="index.html" style="font-family:var(--mono);font-size:11px;color:var(--muted);text-decoration:none;border:1px solid var(--border);padding:4px 12px;border-radius:3px;transition:all 0.2s" onmouseover="this.style.borderColor='var(--red)';this.style.color='var(--red)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">← Inicio</a>
+  </div>
+</div>
+
+<!-- Hero -->
+<div class="hero">
+  <div class="hero-eyebrow">Herramienta de Validación</div>
+  <h1>Cumplimiento de<br><em>Cuotas OMNET</em></h1>
+  <p class="hero-sub">Cruza los flows de medios contra el portafolio para verificar si cada proveedor cumple exactamente su cuota de inversión vía OMNET.</p>
+  <div class="hero-shapes">
+    <div class="shape" style="width:56px;height:56px;background:var(--red);opacity:0.9"></div>
+    <div class="shape" style="width:40px;height:40px;background:var(--yellow);opacity:0.9"></div>
+    <div class="shape" style="width:50px;height:50px;background:var(--blue);opacity:0.7"></div>
+  </div>
+</div>
+
+<div class="app">
+
+  <!-- Sheet status banner -->
+  <div id="sheetBanner" style="margin-top:32px;background:var(--surface2);border:1px solid var(--border);border-left:3px solid var(--muted);border-radius:4px;padding:14px 20px;display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap">
+    <span style="font-size:20px">📋</span>
+    <span style="font-family:var(--mono);font-size:12px;color:var(--muted);flex:1" id="sheetStatus">Cargando tabla de equivalencias desde Google Sheets...</span>
+    <button onclick="loadEquivFromSheet()" style="background:none;border:1px solid var(--border);color:var(--muted);font-family:var(--mono);font-size:10px;padding:4px 10px;border-radius:3px;cursor:pointer">↺ Recargar</button>
+  </div>
+
+  <!-- Upload — solo el flow -->
+  <div style="margin-bottom:24px">
+    <div class="upload-card" id="cardFlow" onclick="document.getElementById('inFlow').click()" style="max-width:520px">
+      <div class="uc-icon">📊</div>
+      <div class="uc-label">Flow de Medios (.xlsm / .xlsx)</div>
+      <div class="uc-sub">El flow que quieres validar — requiere hoja BASE_UNIFICADA</div>
+      <div class="uc-ok" id="okFlow"></div>
+      <input type="file" id="inFlow" accept=".xlsx,.xlsm,.xls" onchange="loadFlow(this.files[0])">
+    </div>
+  </div>
+
+  <div style="margin-bottom:28px;display:flex;align-items:center;gap:20px;flex-wrap:wrap">
+    <button class="btn-run" id="btnRun" onclick="runValidation()" disabled>▶ Validar Cumplimiento</button>
+    <div id="colSelector" style="display:none;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:10px 16px">
+      <span style="font-family:var(--mono);font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px">Columna de inversión:</span>
+      <button class="col-btn active" id="btnColValor" onclick="selectColumn('Valor',this)">Valor (Bruto)</button>
+      <button class="col-btn" id="btnColValorReal" onclick="selectColumn('Valor real',this)">Valor Real (Neto)</button>
+      <span id="colStats" style="font-family:var(--mono);font-size:10px;color:var(--muted)"></span>
+    </div>
+  </div>
+
+  <div class="progress-line" id="progressLine"><div class="progress-fill" id="progressFill"></div></div>
+  <div class="alert-box" id="alertBox"></div>
+
+  <!-- Results -->
+  <div class="results-area" id="resultsArea">
+
+    <div class="summary-grid" id="summaryGrid"></div>
+
+    <!-- Main table -->
+    <div class="section">
+      <div class="section-hdr">
+        <span class="section-title">Detalle por Proveedor</span>
+        <div class="filter-row">
+          <button class="fbtn all active" onclick="setFilter('ALL',this)">Todos</button>
+          <button class="fbtn ok"   onclick="setFilter('OK',this)">✓ Cumple exacto</button>
+          <button class="fbtn cerca" onclick="setFilter('CERCA',this)">≈ Cerca (±5%)</button>
+          <button class="fbtn exceso" onclick="setFilter('EXCESO',this)">↑ Exceso OMNET</button>
+          <button class="fbtn err"  onclick="setFilter('INCUMPLE',this)">✗ Incumple</button>
+          <button class="fbtn none" onclick="setFilter('SIN_TABLA',this)">— Sin tabla OMNET</button>
+          <input class="search-box" id="searchBox" placeholder="Buscar..." oninput="renderTable()">
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Proveedor en Flow</th>
+              <th>Medio</th>
+              <th class="num">Inversión Total</th>
+              <th class="num">Vía OMNET</th>
+              <th>% Real vs Cuota</th>
+              <th class="num">Cuota</th>
+              <th>Estado</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- By medio -->
+    <div class="section">
+      <div class="section-hdr">
+        <span class="section-title">Resumen por Medio</span>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Medio</th>
+              <th class="num">Inversión Total</th>
+              <th class="num">Vía OMNET</th>
+              <th class="num">% Real</th>
+              <th>Proveedores</th>
+              <th>Estados</th>
+            </tr>
+          </thead>
+          <tbody id="tbodyMedio"></tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="footer">
+    <div class="footer-logo">omd<span>.</span></div>
+    <div class="footer-note">Confidential · OMD Colombia · Herramienta interna</div>
+  </div>
+</div>
+
+<script>
+let EQUIV = null;
+let FLOW_DATA = [];
+let RESULTS = [];
+let currentFilter = 'ALL';
+
+// ─── Helpers ───
+function fmt(n) {
+  if(!n || isNaN(n)) return '—';
+  return new Intl.NumberFormat('es-CO',{style:'currency',currency:'COP',minimumFractionDigits:0,maximumFractionDigits:0}).format(n);
+}
+function pct(n,d=1) { return (n!=null&&!isNaN(n)) ? n.toFixed(d)+'%' : '—'; }
+function setProgress(p) { document.getElementById('progressFill').style.width=p+'%'; }
+function showProgress() { document.getElementById('progressLine').classList.add('visible'); }
+function hideProgress() { setTimeout(()=>document.getElementById('progressLine').classList.remove('visible'),500); }
+function showAlert(m) { const a=document.getElementById('alertBox'); a.textContent=m; a.classList.add('visible'); }
+function hideAlert() { document.getElementById('alertBox').classList.remove('visible'); }
+function checkReady() { document.getElementById('btnRun').disabled=!(EQUIV&&FLOW_DATA.length); }
+
+// ─── Google Sheet URL ───
+const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRzhJyOf_Vel08nV8EGAA4HCSbjEpnlyrjkNVKUI4tQMCBvDOODhb6X6Ma1G7perqDqaotcxQoL1wcz/pub?output=csv&gid=0';
+
+async function loadEquivFromSheet() {
+  const banner = document.getElementById('sheetBanner');
+  const status = document.getElementById('sheetStatus');
+  banner.style.borderLeftColor = 'var(--muted)';
+  status.textContent = 'Cargando tabla desde Google Sheets...';
+  status.style.color = 'var(--muted)';
+  try {
+    const res = await fetch(SHEET_CSV_URL);
+    if(!res.ok) throw new Error(`HTTP ${res.status}`);
+    const txt = await res.text();
+    const lines = txt.trim().split('\n').filter(l => l.trim());
+    if(lines.length < 2) throw new Error('La tabla está vacía');
+    const hdrs = lines[0].split(',').map(h => h.replace(/"/g,'').trim());
+    EQUIV = lines.slice(1).map(line => {
+      const vals = line.match(/(".*?"|[^,]+)(?=,|$)/g) || [];
+      const row = {};
+      hdrs.forEach((h,i) => { row[h] = (vals[i]||'').replace(/"/g,'').trim(); });
+      return row;
+    }).filter(e => e.proveedor_flow); // skip empty rows
+    EQUIV = EQUIV.map(e => ({...e, omnet_pct: parseFloat(e.omnet_pct)}));
+    banner.style.borderLeftColor = 'var(--ok)';
+    status.style.color = 'var(--ok)';
+    status.textContent = `✓ Tabla cargada — ${EQUIV.length} proveedores · Actualizada automáticamente desde Google Sheets`;
+    checkReady();
+  } catch(err) {
+    banner.style.borderLeftColor = 'var(--err)';
+    status.style.color = 'var(--err)';
+    status.textContent = `⚠ Error cargando tabla: ${err.message} · Verifica que el Sheet esté publicado`;
+    EQUIV = null;
+    checkReady();
+  }
+}
+
+// ─── Load flow ───
+function loadFlow(file) {
+  if(!file) return;
+  const r=new FileReader();
+  r.onload=e=>{
+    try {
+      const wb=XLSX.read(e.target.result,{type:'array',raw:true});
+      const sn=wb.SheetNames.find(n=>n.toUpperCase().replace(/[\s_]/g,'').includes('BASEUNIF'));
+      if(!sn){ showAlert('No se encontró hoja BASE_UNIFICADA. Hojas: '+wb.SheetNames.join(', ')); return; }
+      const ws=wb.Sheets[sn];
+      const hrRaw=XLSX.utils.sheet_to_json(ws,{header:1,defval:null,raw:false})[0]||[];
+      const hdrs=hrRaw.map(h=>h?String(h).trim():'');
+      const rawRows=XLSX.utils.sheet_to_json(ws,{header:1,defval:null,raw:true}).slice(1);
+      FLOW_DATA=rawRows.filter(r=>r&&r.some(c=>c!=null)).map(r=>{
+        const row={};
+        hdrs.forEach((h,i)=>{ row[h]=r[i]!=null?r[i]:null; });
+        return row;
+      });
+      // Show column selector with stats — user picks which column to use
+      showColumnSelector(FLOW_DATA);
+      document.getElementById('okFlow').textContent=`✓ ${file.name.substring(0,32)} · ${FLOW_DATA.length} filas`;
+      document.getElementById('cardFlow').classList.add('loaded');
+      checkReady();
+    } catch(err){ showAlert('Error leyendo flow: '+err.message); }
+  };
+  r.readAsArrayBuffer(file);
+}
+
+// ─── Core logic ───
+function parseNum(v){
+  if(v==null) return 0;
+  if(typeof v==='number') return isNaN(v)?0:v;
+  const n=parseFloat(String(v).replace(/[^0-9.,-]/g,'').replace(',','.'));
+  return isNaN(n)?0:n;
+}
+
+// Column selected manually by user — default Valor
+let INV_COLUMN = 'Valor';
+
+function selectColumn(col, btn) {
+  INV_COLUMN = col;
+  document.querySelectorAll('.col-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  // Re-run validation if already have results
+  if(RESULTS.length > 0) runValidation();
+}
+
+function showColumnSelector(rows) {
+  // Calculate stats for both columns to help user decide
+  let zeros_v=0, zeros_vr=0, sum_v=0, sum_vr=0;
+  rows.forEach(r => {
+    const v  = parseNum(r['Valor']);
+    const vr = parseNum(r['Valor real']);
+    if(v  === 0) zeros_v++;  else sum_v  += v;
+    if(vr === 0) zeros_vr++; else sum_vr += vr;
+  });
+  const fmtShort = n => new Intl.NumberFormat('es-CO',{style:'currency',currency:'COP',maximumFractionDigits:0,notation:'compact'}).format(n);
+  document.getElementById('colStats').textContent =
+    `Valor: ${fmtShort(sum_v)} (${zeros_v} ceros) · Valor real: ${fmtShort(sum_vr)} (${zeros_vr} ceros)`;
+
+  // Auto-suggest the better column (fewer zeros) but don't apply — user decides
+  const suggested = zeros_vr < zeros_v ? 'Valor real' : 'Valor';
+  const suggestedBtn = suggested === 'Valor real'
+    ? document.getElementById('btnColValorReal')
+    : document.getElementById('btnColValor');
+  // Mark suggested without forcing active
+  document.querySelectorAll('.col-btn').forEach(b => b.classList.remove('active'));
+  suggestedBtn.classList.add('active');
+  INV_COLUMN = suggested;
+
+  document.getElementById('colSelector').style.display = 'flex';
+}
+
+function getInversion(r){
+  return parseNum(r[INV_COLUMN]);
+}
+
+function isOmnetSI(r){ return String(r['Omnet']||'').trim().toUpperCase()==='SI'; }
+function getProveedor(r){ return (r['Proveedor']||'').toString().replace(/\n/g,' ').trim(); }
+function getMedio(r){ return (r['Medio']||'').toString().trim(); }
+function getVehiculo(r){ return (r['Vehículo']||r['Vehiculo']||'').toString().trim(); }
+
+// Classify — exact logic:
+// OK      = exactly at cuota (within 0.1pp) OR above
+// CERCA   = within ±5pp below cuota
+// EXCESO  = more than 5pp ABOVE cuota → alert
+// INCUMPLE= more than 5pp below cuota
+// Special: cuota=0 → OK if real=0, EXCESO if real>0
+function classify(realPct, cuotaPct) {
+  if(realPct == null || cuotaPct == null) return 'SIN_TABLA';
+  const diff = realPct - cuotaPct;
+  if(cuotaPct === 0) {
+    if(Math.abs(realPct) < 0.1) return 'OK';
+    return 'EXCESO'; // any OMNET when cuota=0 is an excess
+  }
+  if(Math.abs(diff) < 0.1)  return 'OK';      // exact match
+  if(diff > 5)               return 'EXCESO';  // significantly over quota → alert
+  if(diff >= 0)              return 'OK';      // slightly above (≤5pp) → ok
+  if(diff >= -5)             return 'CERCA';   // within 5pp below → cerca
+  return 'INCUMPLE';                           // more than 5pp below
+}
+
+function runValidation() {
+  hideAlert(); showProgress(); setProgress(10);
+
+  // Build lookup: proveedor_flow uppercase → equiv
+  const equivMap = new Map();
+  EQUIV.forEach(eq => {
+    const key=(eq.proveedor_flow||'').toUpperCase().trim();
+    if(key) equivMap.set(key, eq);
+  });
+  setProgress(30);
+
+  // Aggregate all proveedores from flow
+  const provMap = new Map();
+  FLOW_DATA.forEach(r => {
+    const prov=getProveedor(r);
+    if(!prov) return;
+    const inv=getInversion(r);
+    const omnet=isOmnetSI(r)?inv:0;
+    const medio=getMedio(r);
+    const veh=getVehiculo(r);
+    const cur=provMap.get(prov)||{inv:0,omnetInv:0,medios:new Set(),vehiculos:new Set(),rows:0};
+    cur.inv+=inv; cur.omnetInv+=omnet;
+    if(medio) cur.medios.add(medio);
+    if(veh) cur.vehiculos.add(veh);
+    cur.rows++;
+    provMap.set(prov, cur);
+  });
+  setProgress(60);
+
+  RESULTS=[];
+  provMap.forEach((data, provName) => {
+    const eq=equivMap.get(provName.toUpperCase());
+    // cuota: from equiv. If not in equiv → SIN_TABLA
+    const cuota = (eq && !isNaN(parseFloat(eq.omnet_pct))) ? parseFloat(eq.omnet_pct) : null;
+    const cuotaPct = cuota!=null ? cuota*100 : null;
+    const realPct = data.inv>0 ? (data.omnetInv/data.inv*100) : 0;
+    const status = eq ? classify(realPct, cuotaPct) : 'SIN_TABLA';
+    const diff = (cuotaPct!=null) ? realPct - cuotaPct : null;
+
+    RESULTS.push({
+      provName, eq,
+      inv: data.inv, omnetInv: data.omnetInv,
+      realPct: data.inv>0 ? realPct : null,
+      cuotaPct, diff, status,
+      medios: [...data.medios].join(', '),
+      vehiculos: [...data.vehiculos],
+      rows: data.rows,
+      seccion: eq?.seccion||'—',
+    });
+  });
+
+  // Sort: INCUMPLE → EXCESO → CERCA → SIN_TABLA → OK
+  const ORDER={INCUMPLE:0,EXCESO:1,CERCA:2,SIN_TABLA:3,OK:4};
+  RESULTS.sort((a,b)=>(ORDER[a.status]??5)-(ORDER[b.status]??5)||b.inv-a.inv);
+
+  setProgress(85);
+  renderSummary();
+  renderTable();
+  renderMedioSummary();
+  setProgress(100);
+  hideProgress();
+  document.getElementById('resultsArea').classList.add('visible');
+}
+
+// ─── Render helpers ───
+function statusPill(s) {
+  const map = {
+    OK:       '<span class="pill ok">✓ Cumple</span>',
+    CERCA:    '<span class="pill cerca">≈ Cerca ±5%</span>',
+    EXCESO:   '<span class="pill exceso">↑ Exceso OMNET</span>',
+    INCUMPLE: '<span class="pill err">✗ Incumple</span>',
+    SIN_TABLA:'<span class="pill none">— Sin tabla OMNET</span>',
+  };
+  return map[s]||s;
+}
+function sc(s){ return {OK:'ok',CERCA:'cerca',EXCESO:'exceso',INCUMPLE:'err',SIN_TABLA:'none'}[s]||'none'; }
+
+function renderSummary() {
+  const tot=RESULTS.length;
+  const ok=RESULTS.filter(r=>r.status==='OK').length;
+  const cerca=RESULTS.filter(r=>r.status==='CERCA').length;
+  const exceso=RESULTS.filter(r=>r.status==='EXCESO').length;
+  const inc=RESULTS.filter(r=>r.status==='INCUMPLE').length;
+  const sin=RESULTS.filter(r=>r.status==='SIN_TABLA').length;
+  const totalInv=RESULTS.reduce((s,r)=>s+r.inv,0);
+  const totalOmnet=RESULTS.reduce((s,r)=>s+r.omnetInv,0);
+  const pctG=totalInv?(totalOmnet/totalInv*100):0;
+
+  document.getElementById('summaryGrid').innerHTML=`
+    <div class="sc ok"><div class="sc-label">Cumplen exacto</div><div class="sc-val ok">${ok}</div><div class="sc-sub">de ${tot} proveedores</div></div>
+    <div class="sc warn"><div class="sc-label">Cerca (±5%)</div><div class="sc-val warn">${cerca}</div><div class="sc-sub">cerca de la cuota</div></div>
+    <div class="sc" style="border-top-color:var(--exceso)"><div class="sc-label">Exceso OMNET</div><div class="sc-val" style="color:var(--exceso)">${exceso}</div><div class="sc-sub">superan la cuota +5%</div></div>
+    <div class="sc err"><div class="sc-label">Incumplen</div><div class="sc-val err">${inc}</div><div class="sc-sub">más de 5% bajo cuota</div></div>
+    <div class="sc none"><div class="sc-label">Sin tabla OMNET</div><div class="sc-val" style="color:var(--muted)">${sin}</div><div class="sc-sub">no en portafolio</div></div>
+    <div class="sc info"><div class="sc-label">Inversión Total · col "${INV_COLUMN}"</div><div class="sc-val" style="font-size:16px;color:var(--text)">${fmt(totalInv)}</div><div class="sc-sub">${fmt(totalOmnet)} vía OMNET</div></div>
+    <div class="sc info"><div class="sc-label">% OMNET Global</div><div class="sc-val info">${pctG.toFixed(1)}%</div><div class="sc-sub">del total del flow</div></div>`;
+}
+
+function setFilter(f, btn) {
+  currentFilter=f;
+  document.querySelectorAll('.fbtn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  renderTable();
+}
+
+function toggleDetail(i) {
+  const row=document.getElementById('det-'+i);
+  if(!row) return;
+  row.classList.toggle('open');
+  const btn=document.querySelector(`[data-exp="${i}"]`);
+  if(btn) btn.textContent=row.classList.contains('open')?'▲ cerrar':'▼ detalle';
+}
+
+function renderTable() {
+  const search=(document.getElementById('searchBox')?.value||'').toLowerCase();
+  let html='';
+
+  RESULTS.forEach((r,i) => {
+    if(currentFilter!=='ALL' && r.status!==currentFilter) return;
+    if(search && !r.provName.toLowerCase().includes(search)) return;
+
+    const cls=sc(r.status);
+    const realP=r.realPct??0;
+    const cuotaP=r.cuotaPct??0;
+    const barW=Math.min(realP,100);
+    const markerL=Math.min(cuotaP,100);
+
+    const diffText = (() => {
+      if(r.diff == null) return '';
+      const d = r.diff;
+      if(r.status === 'OK' && Math.abs(d) < 0.1) return '';
+      if(r.status === 'OK')
+        return `<div style="font-family:var(--mono);font-size:10px;color:var(--ok);margin-top:3px">+${d.toFixed(1)}% sobre cuota</div>`;
+      if(r.status === 'EXCESO')
+        return `<div style="font-family:var(--mono);font-size:10px;color:var(--exceso);margin-top:3px">⚠ Se pasó ${d.toFixed(1)}% de la cuota OMNET</div>`;
+      if(r.status === 'CERCA')
+        return `<div style="font-family:var(--mono);font-size:10px;color:var(--yellow);margin-top:3px">Faltan ${Math.abs(d).toFixed(1)}% para llegar a la cuota</div>`;
+      if(r.status === 'INCUMPLE')
+        return `<div style="font-family:var(--mono);font-size:10px;color:var(--err);margin-top:3px">⚠ Faltan ${Math.abs(d).toFixed(1)}% para cumplir la cuota</div>`;
+      return '';
+    })();
+
+    // Bar
+    const barHtml = r.realPct!=null ? `
+      <div class="pbar-wrap">
+        <div class="pbar-bg">
+          <div class="pbar-fill ${cls}" style="width:${barW}%"></div>
+          ${r.cuotaPct!=null?`<div class="pbar-marker" style="left:${markerL}%"></div>`:''}
+        </div>
+        <span class="pbar-num">${pct(r.realPct)}</span>
+      </div>` : `<span style="font-family:var(--mono);font-size:11px;color:var(--muted)">—</span>`;
+
+    // SIN_TABLA message
+    const sinTablaMsg = r.status==='SIN_TABLA'
+      ? `<div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:4px;font-style:italic">Este proveedor no está en la tabla OMNET</div>`
+      : '';
+
+    html+=`
+      <tr>
+        <td>
+          <div style="font-weight:700;font-size:13px">${r.provName}</div>
+          <div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:2px">${r.seccion!=='—'?r.seccion:'Sin portafolio'}</div>
+          ${sinTablaMsg}
+        </td>
+        <td><span class="medio-tag">${r.medios||'—'}</span></td>
+        <td class="num">${fmt(r.inv)}</td>
+        <td class="num">${fmt(r.omnetInv)}</td>
+        <td style="min-width:170px">${barHtml}</td>
+        <td class="num" style="font-family:var(--mono)">${r.cuotaPct!=null?r.cuotaPct.toFixed(0)+'%':'—'}</td>
+        <td>${statusPill(r.status)}${diffText}</td>
+        <td><button class="btn-expand" data-exp="${i}" onclick="toggleDetail(${i})">▼ detalle</button></td>
+      </tr>
+      <tr class="detail-row" id="det-${i}">
+        <td colspan="8" style="padding:0">
+          <div class="detail-inner">
+            <div class="detail-grid">
+              <div class="di"><label>Proveedor en Flow</label><span>${r.provName}</span></div>
+              <div class="di"><label>Match Portafolio</label><span>${r.eq?.proveedor_cuota||'Sin match'}</span></div>
+              <div class="di"><label>Sección</label><span>${r.seccion}</span></div>
+              <div class="di"><label>Cuota acordada</label><span style="font-size:22px;color:var(--red)">${r.cuotaPct!=null?r.cuotaPct.toFixed(0)+'%':'Sin datos'}</span></div>
+              <div class="di"><label>% Real en flow</label><span style="font-size:22px;color:var(--${cls})">${r.realPct!=null?r.realPct.toFixed(2)+'%':'—'}</span></div>
+              <div class="di"><label>Diferencia</label><span style="font-size:18px">${r.diff!=null?(r.diff>=0?'+':'')+r.diff.toFixed(2)+'%':'—'}</span></div>
+              <div class="di"><label>Inversión Total</label><span>${fmt(r.inv)}</span></div>
+              <div class="di"><label>Inversión OMNET SI</label><span>${fmt(r.omnetInv)}</span></div>
+              <div class="di"><label>Filas en flow</label><span>${r.rows}</span></div>
+              <div class="di"><label>Vehículos</label><span style="font-size:12px;font-weight:400">${r.vehiculos.slice(0,6).join(', ')+(r.vehiculos.length>6?` +${r.vehiculos.length-6} más`:'')}</span></div>
+            </div>
+          </div>
+        </td>
+      </tr>`;
+  });
+
+  document.getElementById('tbody').innerHTML = html ||
+    `<tr><td colspan="8"><div class="empty-state">Sin resultados para este filtro</div></td></tr>`;
+}
+
+function renderMedioSummary() {
+  // Build a proveedor→status lookup from RESULTS for the status badges
+  const provStatus = new Map();
+  RESULTS.forEach(r => provStatus.set(r.provName.toUpperCase(), r.status));
+
+  // Aggregate directly from raw flow rows — one row → one medio, no double counting
+  const medioMap = new Map();
+  FLOW_DATA.forEach(row => {
+    const medio = getMedio(row);
+    if(!medio) return;
+    const inv    = getInversion(row);
+    const omnet  = isOmnetSI(row) ? inv : 0;
+    const prov   = getProveedor(row).toUpperCase();
+    const status = provStatus.get(prov) || 'SIN_TABLA';
+
+    const cur = medioMap.get(medio) || {inv:0, omnet:0, provs:new Set(), ok:0, cerca:0, inc:0, exceso:0, sin:0};
+    cur.inv   += inv;
+    cur.omnet += omnet;
+    cur.provs.add(prov);
+    medioMap.set(medio, cur);
+  });
+
+  // Count statuses per medio using provStatus (once per proveedor per medio)
+  const medioProvSeen = new Map(); // medio → Set of provs already counted for status
+  FLOW_DATA.forEach(row => {
+    const medio = getMedio(row);
+    if(!medio) return;
+    const prov = getProveedor(row).toUpperCase();
+    if(!medioProvSeen.has(medio)) medioProvSeen.set(medio, new Set());
+    if(medioProvSeen.get(medio).has(prov)) return;
+    medioProvSeen.get(medio).add(prov);
+
+    const status = provStatus.get(prov) || 'SIN_TABLA';
+    const cur = medioMap.get(medio);
+    if(!cur) return;
+    if(status==='OK')       cur.ok++;
+    else if(status==='CERCA')   cur.cerca++;
+    else if(status==='EXCESO')  cur.exceso++;
+    else if(status==='INCUMPLE')cur.inc++;
+    else cur.sin++;
+  });
+
+  const rows = [...medioMap.entries()].sort((a,b) => b[1].inv - a[1].inv);
+  document.getElementById('tbodyMedio').innerHTML = rows.map(([medio, d]) => {
+    const rp  = d.inv > 0 ? d.omnet/d.inv*100 : 0;
+    const cls = d.inc>0?'err':d.exceso>0?'exceso':d.cerca>0?'cerca':'ok';
+    return `<tr>
+      <td><span class="medio-tag">${medio}</span></td>
+      <td class="num">${fmt(d.inv)}</td>
+      <td class="num">${fmt(d.omnet)}</td>
+      <td class="num" style="font-family:var(--mono);font-weight:700;color:var(--${cls})">${rp.toFixed(1)}%</td>
+      <td style="font-family:var(--mono);font-size:11px;color:var(--muted)">${d.provs.size} proveedores</td>
+      <td>
+        <span style="color:var(--ok);font-family:var(--mono);font-size:11px">✓${d.ok}</span>
+        ${d.cerca>0?`<span style="color:var(--yellow);font-family:var(--mono);font-size:11px;margin-left:8px">≈${d.cerca}</span>`:''}
+        ${d.exceso>0?`<span style="color:var(--exceso);font-family:var(--mono);font-size:11px;margin-left:8px">↑${d.exceso}</span>`:''}
+        ${d.inc>0?`<span style="color:var(--err);font-family:var(--mono);font-size:11px;margin-left:8px">✗${d.inc}</span>`:''}
+        ${d.sin>0?`<span style="color:var(--muted);font-family:var(--mono);font-size:11px;margin-left:8px">—${d.sin}</span>`:''}
+      </td>
+    </tr>`;
+  }).join('') || `<tr><td colspan="6"><div class="empty-state">Sin datos</div></td></tr>`;
+}
+
+// Drag & drop — solo cardFlow
+const cardFlow = document.getElementById('cardFlow');
+cardFlow.addEventListener('dragover',e=>{e.preventDefault();cardFlow.style.borderColor='var(--red)';});
+cardFlow.addEventListener('dragleave',()=>{cardFlow.style.borderColor='';});
+cardFlow.addEventListener('drop',e=>{
+  e.preventDefault(); cardFlow.style.borderColor='';
+  const file=e.dataTransfer.files[0];
+  if(file) loadFlow(file);
+});
+
+// Auto-load tabla from Google Sheets on page open
+loadEquivFromSheet();
+</script>
+</body>
+</html>

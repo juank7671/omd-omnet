@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agente Flow de Medios</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #12121a;
+    --surface2: #1a1a26;
+    --border: #2a2a3a;
+    --accent: #00e5a0;
+    --accent2: #7c5cfc;
+    --accent3: #ff6b6b;
+    --yellow: #ffd166;
+    --text: #e8e8f0;
+    --muted: #6b6b88;
+    --mono: 'DM Mono', monospace;
+    --sans: 'Syne', sans-serif;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: var(--bg); color: var(--text); font-family: var(--sans); min-height: 100vh; overflow-x: hidden; }
+  body::before {
+    content: ''; position: fixed; inset: 0;
+    background-image: linear-gradient(var(--border) 1px, transparent 1px), linear-gradient(90deg, var(--border) 1px, transparent 1px);
+    background-size: 40px 40px; opacity: 0.2; pointer-events: none;
+  }
+  .app { max-width: 1200px; margin: 0 auto; padding: 40px 24px; position: relative; }
+
+  header { margin-bottom: 40px; }
+  .badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: rgba(0,229,160,0.1); border: 1px solid rgba(0,229,160,0.3);
+    color: var(--accent); font-family: var(--mono); font-size: 11px;
+    padding: 4px 10px; border-radius: 4px; margin-bottom: 16px; letter-spacing: 1px; text-transform: uppercase;
+  }
+  .badge::before { content: '◆'; font-size: 8px; }
+  h1 { font-size: clamp(28px, 5vw, 46px); font-weight: 800; line-height: 1.1; letter-spacing: -1px; }
+  h1 span { color: var(--accent); }
+  .subtitle { color: var(--muted); font-family: var(--mono); font-size: 13px; margin-top: 10px; }
+
+  .drop-zone {
+    border: 2px dashed var(--border); border-radius: 16px; padding: 48px;
+    text-align: center; cursor: pointer; transition: all 0.3s ease;
+    background: var(--surface); position: relative; overflow: hidden;
+  }
+  .drop-zone::before {
+    content: ''; position: absolute; inset: 0;
+    background: radial-gradient(circle at 50% 0%, rgba(124,92,252,0.08) 0%, transparent 70%); pointer-events: none;
+  }
+  .drop-zone:hover, .drop-zone.drag-over { border-color: var(--accent); background: rgba(0,229,160,0.03); transform: translateY(-2px); }
+  .drop-icon { font-size: 48px; margin-bottom: 16px; display: block; }
+  .drop-title { font-size: 18px; font-weight: 700; margin-bottom: 8px; }
+  .drop-sub { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+  .file-input { display: none; }
+
+  .status-bar {
+    display: flex; align-items: center; gap: 10px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 8px; padding: 12px 16px; margin-top: 16px;
+  }
+  .status-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; background: var(--muted); transition: background 0.3s; }
+  .status-dot.active { background: var(--accent); box-shadow: 0 0 8px var(--accent); animation: pulse 1.2s infinite; }
+  .status-dot.done { background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+  .status-dot.error { background: var(--accent3); }
+  @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:0.4;} }
+  .status-text { font-family: var(--mono); font-size: 12px; flex: 1; }
+  .progress-track { background: var(--surface2); border-radius: 4px; height: 3px; overflow: hidden; margin-top: 8px; }
+  .progress-bar { height: 100%; background: linear-gradient(90deg, var(--accent2), var(--accent)); border-radius: 4px; width: 0%; transition: width 0.4s ease; }
+
+  .results { margin-top: 32px; display: none; }
+  .results.visible { display: block; }
+
+  .cards-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 14px; margin-bottom: 28px; }
+  .card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 18px; position: relative; overflow: hidden;
+    transition: border-color 0.2s, transform 0.2s;
+  }
+  .card:hover { transform: translateY(-1px); }
+  .card::after { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; }
+  .card.green::after { background: var(--accent); }
+  .card.purple::after { background: var(--accent2); }
+  .card.red::after { background: var(--accent3); }
+  .card.yellow::after { background: var(--yellow); }
+  .card-label { font-family: var(--mono); font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+  .card-value { font-size: 20px; font-weight: 800; word-break: break-word; }
+  .card-value.green { color: var(--accent); }
+  .card-value.purple { color: var(--accent2); }
+  .card-value.red { color: var(--accent3); }
+  .card-value.yellow { color: var(--yellow); }
+  .card-value.white { color: var(--text); }
+  .card-sub { font-family: var(--mono); font-size: 11px; color: var(--muted); margin-top: 4px; }
+
+  .tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--border); margin-bottom: 24px; flex-wrap: wrap; }
+  .tab-btn {
+    background: none; border: none; color: var(--muted);
+    font-family: var(--sans); font-size: 13px; font-weight: 600;
+    padding: 10px 16px; cursor: pointer; border-bottom: 2px solid transparent;
+    margin-bottom: -1px; transition: all 0.2s; white-space: nowrap;
+  }
+  .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .tab-btn:hover:not(.active) { color: var(--text); }
+  .tab-pane { display: none; }
+  .tab-pane.active { display: block; }
+
+  .section-title {
+    font-size: 11px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 2px; color: var(--muted); margin-bottom: 16px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .section-title::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+  .table-wrap { overflow-x: auto; border-radius: 8px; border: 1px solid var(--border); margin-bottom: 24px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  thead { background: var(--surface2); }
+  th { font-family: var(--mono); font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); padding: 10px 14px; text-align: left; white-space: nowrap; border-bottom: 1px solid var(--border); }
+  td { padding: 9px 14px; border-bottom: 1px solid rgba(42,42,58,0.5); font-family: var(--mono); font-size: 12px; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: rgba(124,92,252,0.04); }
+  .num { text-align: right; }
+  .c-green { color: var(--accent); }
+  .c-red { color: var(--accent3); }
+  .c-yellow { color: var(--yellow); }
+  .c-muted { color: var(--muted); }
+
+  .tag { display: inline-block; border-radius: 4px; padding: 2px 8px; font-size: 10px; font-family: var(--mono); white-space: nowrap; }
+  .tag.medio { background: rgba(124,92,252,0.15); color: var(--accent2); border: 1px solid rgba(124,92,252,0.3); }
+  .tag.si { background: rgba(0,229,160,0.12); color: var(--accent); border: 1px solid rgba(0,229,160,0.3); }
+  .tag.no { background: rgba(107,107,136,0.12); color: var(--muted); border: 1px solid var(--border); }
+
+  .bar-wrap { display: flex; align-items: center; gap: 8px; min-width: 100px; }
+  .bar-bg { background: var(--surface2); border-radius: 3px; height: 6px; flex: 1; overflow: hidden; }
+  .bar-fill { height: 100%; border-radius: 3px; background: linear-gradient(90deg, var(--accent2), var(--accent)); }
+  .bar-pct { font-family: var(--mono); font-size: 10px; color: var(--muted); width: 38px; text-align: right; }
+
+  .omnet-banner { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; }
+  .omnet-stat { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 14px 18px; flex: 1; min-width: 150px; }
+  .omnet-stat.hi { border-color: rgba(0,229,160,0.3); background: rgba(0,229,160,0.05); }
+  .omnet-stat label { font-family: var(--mono); font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; display: block; margin-bottom: 6px; }
+  .omnet-stat .val { font-size: 18px; font-weight: 800; }
+
+  .filter-row { display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; align-items: center; }
+  .filter-select {
+    background: var(--surface); border: 1px solid var(--border); color: var(--text);
+    font-family: var(--mono); font-size: 12px; padding: 6px 12px; border-radius: 6px; cursor: pointer; transition: border-color 0.2s;
+  }
+  .filter-select:focus { outline: none; border-color: var(--accent2); }
+  .search-input {
+    background: var(--surface); border: 1px solid var(--border); color: var(--text);
+    font-family: var(--mono); font-size: 12px; padding: 6px 12px; border-radius: 6px; width: 220px; transition: border-color 0.2s;
+  }
+  .search-input:focus { outline: none; border-color: var(--accent); }
+  .search-input::placeholder { color: var(--muted); }
+
+  .empty-state { text-align: center; padding: 40px; color: var(--muted); font-family: var(--mono); font-size: 13px; }
+  .warn-box { background: rgba(255,209,102,0.08); border: 1px solid rgba(255,209,102,0.25); border-radius: 8px; padding: 12px 16px; font-family: var(--mono); font-size: 12px; color: var(--yellow); margin-top: 12px; }
+  .reset-btn { background: none; border: 1px solid var(--border); color: var(--muted); font-family: var(--sans); font-size: 12px; padding: 8px 16px; border-radius: 6px; cursor: pointer; transition: all 0.2s; margin-top: 20px; }
+  .reset-btn:hover { border-color: var(--accent3); color: var(--accent3); }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div style="display:flex;justify-content:space-between;align-items:flex-start">
+      <div class="badge">Agente · Flow de Medios</div>
+      <a href="index.html" style="font-family:var(--mono);font-size:11px;color:var(--muted);text-decoration:none;border:1px solid #2a2a3a;padding:4px 12px;border-radius:3px">← Inicio</a>
+    </div>
+    <h1>Análisis de<br><span>Inversión en Medios</span></h1>
+    <p class="subtitle">// Lee BASE_UNIFICADA — medios, vehículos, proveedores y OMNET</p>
+  </header>
+
+  <div class="drop-zone" id="dropZone">
+    <span class="drop-icon">📊</span>
+    <div class="drop-title">Arrastra tu Flow de Medios aquí</div>
+    <div class="drop-sub">.xlsm · .xlsx · requiere hoja BASE_UNIFICADA</div>
+    <input type="file" id="fileInput" class="file-input" accept=".xlsx,.xlsm,.xls">
+  </div>
+
+  <div class="status-bar">
+    <div class="status-dot" id="statusDot"></div>
+    <span class="status-text" id="statusText">Esperando archivo...</span>
+  </div>
+  <div class="progress-track"><div class="progress-bar" id="progressBar"></div></div>
+
+  <div class="results" id="results">
+    <div class="cards-grid" id="cardsGrid"></div>
+    <div class="tabs">
+      <button class="tab-btn active" onclick="switchTab('medios',this)">Por Medio</button>
+      <button class="tab-btn" onclick="switchTab('vehiculos',this)">Por Vehículo</button>
+      <button class="tab-btn" onclick="switchTab('proveedores',this)">Por Proveedor</button>
+      <button class="tab-btn" onclick="switchTab('omnet',this)">OMNET</button>
+      <button class="tab-btn" onclick="switchTab('campanas',this)">Campaña / Marca</button>
+      <button class="tab-btn" onclick="switchTab('detalle',this)">Detalle filas</button>
+    </div>
+    <div id="tab-medios" class="tab-pane active"></div>
+    <div id="tab-vehiculos" class="tab-pane"></div>
+    <div id="tab-proveedores" class="tab-pane"></div>
+    <div id="tab-omnet" class="tab-pane"></div>
+    <div id="tab-campanas" class="tab-pane"></div>
+    <div id="tab-detalle" class="tab-pane"></div>
+    <button class="reset-btn" onclick="resetAll()">↩ Cargar otro archivo</button>
+  </div>
+</div>
+
+<script>
+let DATA = [];
+
+function setStatus(t, s) {
+  document.getElementById('statusText').textContent = t;
+  document.getElementById('statusDot').className = 'status-dot' + (s ? ' ' + s : '');
+}
+function setProgress(p) { document.getElementById('progressBar').style.width = p + '%'; }
+function switchTab(name, btn) {
+  document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  if (btn) btn.classList.add('active');
+}
+function fmt(n) {
+  if (!n || isNaN(n)) return '—';
+  return new Intl.NumberFormat('es-CO', { style:'currency', currency:'COP', minimumFractionDigits:0, maximumFractionDigits:0 }).format(n);
+}
+function pct(p) { return (p != null && !isNaN(p)) ? p.toFixed(1) + '%' : '—'; }
+function bar(p) {
+  return `<div class="bar-wrap"><div class="bar-bg"><div class="bar-fill" style="width:${Math.min(p||0,100)}%"></div></div><span class="bar-pct">${(p||0).toFixed(1)}%</span></div>`;
+}
+
+// File handling
+const dropZone = document.getElementById('dropZone');
+const fileInput = document.getElementById('fileInput');
+dropZone.addEventListener('click', () => fileInput.click());
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+dropZone.addEventListener('drop', e => { e.preventDefault(); dropZone.classList.remove('drag-over'); if (e.dataTransfer.files[0]) processFile(e.dataTransfer.files[0]); });
+fileInput.addEventListener('change', e => { if (e.target.files[0]) processFile(e.target.files[0]); });
+
+function processFile(file) {
+  setStatus('Leyendo archivo...', 'active');
+  setProgress(15);
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      setProgress(35);
+      const wb = XLSX.read(e.target.result, { type: 'array', cellDates: true });
+
+      // Flexible sheet search: BASE_UNIFICADA or similar
+      let sheetName = wb.SheetNames.find(n => {
+        const u = n.toUpperCase().replace(/[\s_-]/g, '');
+        return u.includes('BASEUNIF') || u === 'BASEUNIFICADA';
+      });
+      if (!sheetName) sheetName = wb.SheetNames.find(n => n.toUpperCase().includes('BASE'));
+      if (!sheetName) {
+        setStatus('No se encontró hoja BASE_UNIFICADA. Hojas: ' + wb.SheetNames.join(', '), 'error');
+        return;
+      }
+
+      setStatus('Hoja "' + sheetName + '" encontrada · Procesando...', 'active');
+      setProgress(55);
+
+      const ws = wb.Sheets[sheetName];
+      // raw:true keeps numbers as JS numbers (not formatted strings like "$996,608.00")
+      // cellDates:true already set on workbook read so dates parse correctly
+      const raw = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null, raw: true });
+
+      if (raw.length < 2) { setStatus('La hoja está vacía', 'error'); return; }
+
+      // Build header map — header row use raw:false for readability
+      const headerRow = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null, raw: false })[0];
+      const headers = headerRow.map(h => h ? String(h).trim() : '');
+      DATA = [];
+      for (let i = 1; i < raw.length; i++) {
+        const r = raw[i];
+        if (!r || r.every(c => c == null || c === '')) continue;
+        const row = {};
+        headers.forEach((h, j) => { row[h] = r[j] != null ? r[j] : null; });
+        DATA.push(row);
+      }
+
+      setProgress(80);
+      renderAll(file.name, sheetName);
+      setProgress(100);
+      setStatus('✓ ' + file.name + ' — ' + DATA.length.toLocaleString() + ' filas', 'done');
+      document.getElementById('results').classList.add('visible');
+    } catch(err) {
+      setStatus('Error: ' + err.message, 'error');
+      console.error(err);
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+// Value helpers — raw:true means numeric cells arrive as JS numbers directly
+function parseNum(val) {
+  if (val == null) return 0;
+  if (typeof val === 'number') return isNaN(val) ? 0 : val;
+  // fallback for any string values
+  const v = parseFloat(String(val).replace(/[$\s.]/g,'').replace(',','.'));
+  return isNaN(v) ? 0 : v;
+}
+function getValBruto(r) { return parseNum(r['Valor']); }
+function getValReal(r)  { return parseNum(r['Valor real']); }
+// Use Valor real if > 0, otherwise fall back to Valor
+// (Valor real can be 0 literally for some medios like INTERNET — must not override)
+function getInversion(r) {
+  const vr = getValReal(r);
+  return vr > 0 ? vr : getValBruto(r);
+}
+function isOmnetSI(r) { return String(r['Omnet'] || '').trim().toUpperCase() === 'SI'; }
+function getVehiculo(r) { return r['Vehículo'] || r['Vehiculo'] || r['vehiculo'] || ''; }
+function getCampana(r) { return r['Campaña'] || r['Campana'] || r['campaña'] || ''; }
+
+function groupBy(arr, keyFn) {
+  const map = new Map();
+  arr.forEach(r => {
+    const k = String(keyFn(r) || '').trim();
+    if (!k) return;
+    const c = map.get(k) || { name: k, inv: 0, bruto: 0, real: 0, omnetSI: 0, rows: 0, medios: new Set() };
+    c.inv   += getInversion(r);
+    c.bruto += getValBruto(r);
+    c.real  += getValReal(r);
+    c.omnetSI += isOmnetSI(r) ? getInversion(r) : 0;
+    c.rows++;
+    if (r['Medio']) c.medios.add(r['Medio']);
+    map.set(k, c);
+  });
+  return [...map.values()].sort((a,b) => b.inv - a.inv);
+}
+
+function renderAll(filename, sheetName) {
+  const totalInv    = DATA.reduce((s,r) => s + getInversion(r), 0);
+  const totalBruto  = DATA.reduce((s,r) => s + getValBruto(r), 0);
+  const totalReal   = DATA.reduce((s,r) => s + getValReal(r), 0);
+  const omnetSIRows = DATA.filter(isOmnetSI);
+  const omnetSIVal  = omnetSIRows.reduce((s,r) => s + getInversion(r), 0);
+  const omnetNOVal  = totalInv - omnetSIVal;
+  const siPct       = totalInv ? omnetSIVal / totalInv * 100 : 0;
+
+  const mediosU     = [...new Set(DATA.map(r => r['Medio']).filter(Boolean))];
+  const vehiculosU  = [...new Set(DATA.map(getVehiculo).filter(Boolean))];
+  const provU       = [...new Set(DATA.map(r => r['Proveedor']).filter(Boolean))];
+  const marcasU     = [...new Set(DATA.map(r => r['Marca']).filter(Boolean))];
+
+  document.getElementById('cardsGrid').innerHTML = `
+    <div class="card green">
+      <div class="card-label">Inversión Total</div>
+      <div class="card-value green" style="font-size:15px">${fmt(totalInv)}</div>
+      <div class="card-sub">Valor real si existe, si no Valor</div>
+    </div>
+    <div class="card purple">
+      <div class="card-label">Inversión Bruta</div>
+      <div class="card-value purple" style="font-size:15px">${fmt(totalBruto)}</div>
+      <div class="card-sub">col "Valor" sin ajuste</div>
+    </div>
+    <div class="card red">
+      <div class="card-label">Inversión OMNET = SI</div>
+      <div class="card-value red" style="font-size:15px">${fmt(omnetSIVal)}</div>
+      <div class="card-sub">${pct(siPct)} del bruto · ${omnetSIRows.length} filas</div>
+    </div>
+    <div class="card yellow">
+      <div class="card-label">Medios</div>
+      <div class="card-value yellow">${mediosU.length}</div>
+      <div class="card-sub">categorías únicas</div>
+    </div>
+    <div class="card green">
+      <div class="card-label">Vehículos</div>
+      <div class="card-value green">${vehiculosU.length}</div>
+      <div class="card-sub">canales / soportes</div>
+    </div>
+    <div class="card purple">
+      <div class="card-label">Proveedores</div>
+      <div class="card-value purple">${provU.length}</div>
+      <div class="card-sub">razones sociales</div>
+    </div>
+    <div class="card yellow">
+      <div class="card-label">Marcas</div>
+      <div class="card-value yellow">${marcasU.length}</div>
+      <div class="card-sub">${filename.substring(0,28)}</div>
+    </div>`;
+
+  renderMedios(totalInv);
+  renderVehiculos(totalInv);
+  renderProveedores(totalInv);
+  renderOmnet(totalInv, omnetSIVal, omnetNOVal, siPct);
+  renderCampanas(totalInv);
+  renderDetalle();
+}
+
+function renderMedios(totalBruto) {
+  const g = groupBy(DATA, r => r['Medio'] || '');
+  const el = document.getElementById('tab-medios');
+  el.innerHTML = `
+    <div class="section-title">Inversión por Medio</div>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Medio</th><th class="num">Filas</th><th class="num">Inversión</th><th class="num">% del Total</th><th class="num">OMNET SI</th><th>Distribución</th></tr></thead>
+      <tbody>${g.map(d => {
+        const p = totalBruto ? d.inv/totalBruto*100 : 0;
+        return `<tr>
+          <td><span class="tag medio">${d.name}</span></td>
+          <td class="num c-muted">${d.rows.toLocaleString()}</td>
+          <td class="num c-green">${fmt(d.inv)}</td>
+          <td class="num">${pct(p)}</td>
+          <td class="num c-red">${fmt(d.omnetSI)}</td>
+          <td>${bar(p)}</td></tr>`;
+      }).join('')}</tbody>
+    </table></div>`;
+}
+
+function renderVehiculos(totalBruto) {
+  const medioOpts = [...new Set(DATA.map(r => r['Medio']).filter(Boolean))];
+  document.getElementById('tab-vehiculos').innerHTML = `
+    <div class="section-title">Inversión por Vehículo</div>
+    <div class="filter-row">
+      <select class="filter-select" id="fMedioVeh" onchange="filtrarVehiculos()">
+        <option value="">Todos los medios</option>
+        ${medioOpts.map(m=>`<option value="${m}">${m}</option>`).join('')}
+      </select>
+      <input class="search-input" id="sVeh" placeholder="Buscar vehículo..." oninput="filtrarVehiculos()">
+    </div>
+    <div id="tbVeh"></div>`;
+  filtrarVehiculos();
+}
+function filtrarVehiculos() {
+  const fm = (document.getElementById('fMedioVeh')?.value||'').toLowerCase();
+  const s  = (document.getElementById('sVeh')?.value||'').toLowerCase();
+  let rows = DATA;
+  if (fm) rows = rows.filter(r => (r['Medio']||'').toLowerCase() === fm);
+  if (s)  rows = rows.filter(r => getVehiculo(r).toLowerCase().includes(s));
+  const g = groupBy(rows, getVehiculo);
+  const totalBruto = DATA.reduce((a,r)=>a+getInversion(r),0);
+  // medio lookup
+  const vm = {}; DATA.forEach(r => { const v=getVehiculo(r); if(v&&r['Medio'])vm[v]=r['Medio']; });
+  document.getElementById('tbVeh').innerHTML = g.length ? `
+    <div class="table-wrap"><table>
+      <thead><tr><th>Vehículo</th><th>Medio</th><th class="num">Filas</th><th class="num">Inversión</th><th class="num">% Total</th><th class="num">OMNET SI</th><th>Distribución</th></tr></thead>
+      <tbody>${g.map(d=>{const p=totalBruto?d.inv/totalBruto*100:0;return`<tr>
+        <td><b>${d.name}</b></td>
+        <td><span class="tag medio">${vm[d.name]||'?'}</span></td>
+        <td class="num c-muted">${d.rows}</td>
+        <td class="num c-green">${fmt(d.inv)}</td>
+        <td class="num">${pct(p)}</td>
+        <td class="num c-red">${fmt(d.omnetSI)}</td>
+        <td>${bar(p)}</td></tr>`;}).join('')}
+      </tbody></table></div>` : '<div class="empty-state">Sin resultados</div>';
+}
+
+function renderProveedores(totalBruto) {
+  const medioOpts = [...new Set(DATA.map(r => r['Medio']).filter(Boolean))];
+  document.getElementById('tab-proveedores').innerHTML = `
+    <div class="section-title">Inversión por Proveedor</div>
+    <div class="filter-row">
+      <select class="filter-select" id="fMedioProv" onchange="filtrarProveedores()">
+        <option value="">Todos los medios</option>
+        ${medioOpts.map(m=>`<option value="${m}">${m}</option>`).join('')}
+      </select>
+      <input class="search-input" id="sProv" placeholder="Buscar proveedor..." oninput="filtrarProveedores()">
+    </div>
+    <div id="tbProv"></div>`;
+  filtrarProveedores();
+}
+function filtrarProveedores() {
+  const fm = (document.getElementById('fMedioProv')?.value||'').toLowerCase();
+  const s  = (document.getElementById('sProv')?.value||'').toLowerCase();
+  let rows = DATA;
+  if (fm) rows = rows.filter(r => (r['Medio']||'').toLowerCase() === fm);
+  if (s)  rows = rows.filter(r => (r['Proveedor']||'').toLowerCase().includes(s));
+  const g = groupBy(rows, r => r['Proveedor']||'');
+  const totalBruto = DATA.reduce((a,r)=>a+getInversion(r),0);
+  document.getElementById('tbProv').innerHTML = g.length ? `
+    <div class="table-wrap"><table>
+      <thead><tr><th>Proveedor</th><th>Medios</th><th class="num">Filas</th><th class="num">Inversión</th><th class="num">% Total</th><th class="num">OMNET SI</th><th>Distribución</th></tr></thead>
+      <tbody>${g.map(d=>{
+        const p=totalBruto?d.inv/totalBruto*100:0;
+        const ms=[...d.medios].map(m=>`<span class="tag medio" style="margin:1px;font-size:9px">${m}</span>`).join('');
+        return`<tr>
+          <td style="font-size:11px;max-width:200px">${d.name}</td>
+          <td>${ms}</td>
+          <td class="num c-muted">${d.rows}</td>
+          <td class="num c-green">${fmt(d.inv)}</td>
+          <td class="num">${pct(p)}</td>
+          <td class="num c-red">${fmt(d.omnetSI)}</td>
+          <td>${bar(p)}</td></tr>`;}).join('')}
+      </tbody></table></div>` : '<div class="empty-state">Sin resultados</div>';
+}
+
+function renderOmnet(totalBruto, siVal, noVal, siPct) {
+  const siRows = DATA.filter(isOmnetSI);
+  const gVeh   = groupBy(siRows, getVehiculo);
+  const gMedio  = groupBy(siRows, r => r['Medio']||'');
+
+  document.getElementById('tab-omnet').innerHTML = `
+    <div class="section-title">Análisis OMNET</div>
+    <div class="omnet-banner">
+      <div class="omnet-stat hi">
+        <label>OMNET = SI</label>
+        <div class="val c-green">${fmt(siVal)}</div>
+        <div style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:4px">${siRows.length} filas · ${pct(siPct)} del total</div>
+      </div>
+      <div class="omnet-stat">
+        <label>OMNET = NO</label>
+        <div class="val c-muted">${fmt(noVal)}</div>
+        <div style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:4px">${DATA.length - siRows.length} filas · ${pct(100-siPct)} del total</div>
+      </div>
+      <div class="omnet-stat">
+        <label>Total General Bruto</label>
+        <div class="val" style="color:var(--text)">${fmt(totalBruto)}</div>
+        <div style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:4px">${DATA.length} filas</div>
+      </div>
+    </div>
+
+    ${gMedio.length ? `
+    <div class="section-title">OMNET = SI por Medio</div>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Medio</th><th class="num">Filas</th><th class="num">Inversión OMNET SI</th><th class="num">% sobre total OMNET SI</th><th>Distribución</th></tr></thead>
+      <tbody>${gMedio.map(d=>{const p=siVal?d.bruto/siVal*100:0;return`<tr>
+        <td><span class="tag medio">${d.name}</span></td>
+        <td class="num c-muted">${d.rows}</td>
+        <td class="num c-green">${fmt(d.inv)}</td>
+        <td class="num">${pct(p)}</td>
+        <td>${bar(p)}</td></tr>`;}).join('')}
+      </tbody></table></div>` : ''}
+
+    ${gVeh.length ? `
+    <div class="section-title">OMNET = SI por Vehículo</div>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Vehículo</th><th>Medio</th><th class="num">Filas</th><th class="num">Inversión OMNET SI</th><th class="num">% sobre total OMNET SI</th></tr></thead>
+      <tbody>${gVeh.map(d=>{const p=siVal?d.bruto/siVal*100:0;const m=[...d.medios][0]||'?';return`<tr>
+        <td><b>${d.name}</b></td>
+        <td><span class="tag medio">${m}</span></td>
+        <td class="num c-muted">${d.rows}</td>
+        <td class="num c-green">${fmt(d.inv)}</td>
+        <td class="num">${pct(p)}</td></tr>`;}).join('')}
+      </tbody></table></div>` : '<div class="empty-state">No hay filas con OMNET = SI en este archivo</div>'}
+
+    <div class="warn-box">⚠ OMNET = SI indica que esa inversión se canaliza vía plataforma OMNET. Verifica el tratamiento con tu equipo de trading.</div>`;
+}
+
+function renderCampanas(totalBruto) {
+  const g = groupBy(DATA, r => (getCampana(r)||'') + '|||' + (r['Marca']||''));
+  document.getElementById('tab-campanas').innerHTML = `
+    <div class="section-title">Inversión por Campaña y Marca</div>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Campaña</th><th>Marca</th><th class="num">Filas</th><th class="num">Inversión Bruta</th><th class="num">% Total</th><th class="num">OMNET SI</th><th>Distribución</th></tr></thead>
+      <tbody>${g.map(d=>{
+        const [camp,marca]=d.name.split('|||');
+        const p=totalBruto?d.inv/totalBruto*100:0;
+        return`<tr>
+          <td><b>${camp||'—'}</b></td>
+          <td>${marca||'—'}</td>
+          <td class="num c-muted">${d.rows}</td>
+          <td class="num c-green">${fmt(d.inv)}</td>
+          <td class="num">${pct(p)}</td>
+          <td class="num c-red">${fmt(d.omnetSI)}</td>
+          <td>${bar(p)}</td></tr>`;}).join('')}
+      </tbody></table></div>`;
+}
+
+function renderDetalle() {
+  const medioOpts = [...new Set(DATA.map(r => r['Medio']).filter(Boolean))];
+  document.getElementById('tab-detalle').innerHTML = `
+    <div class="section-title">Detalle de filas</div>
+    <div class="filter-row">
+      <input class="search-input" id="sDet" placeholder="Buscar en todo..." oninput="filtrarDetalle()" style="width:260px">
+      <select class="filter-select" id="fMedioDet" onchange="filtrarDetalle()">
+        <option value="">Todos los medios</option>
+        ${medioOpts.map(m=>`<option value="${m}">${m}</option>`).join('')}
+      </select>
+      <select class="filter-select" id="fOmnetDet" onchange="filtrarDetalle()">
+        <option value="">OMNET: todos</option>
+        <option value="SI">SI</option>
+        <option value="NO">NO</option>
+      </select>
+    </div>
+    <div id="tbDet"></div>`;
+  filtrarDetalle();
+}
+function filtrarDetalle() {
+  const s  = (document.getElementById('sDet')?.value||'').toLowerCase();
+  const fm = (document.getElementById('fMedioDet')?.value||'').toLowerCase();
+  const fo = (document.getElementById('fOmnetDet')?.value||'').toUpperCase();
+  let rows = DATA;
+  if (fm) rows = rows.filter(r => (r['Medio']||'').toLowerCase() === fm);
+  if (fo) rows = rows.filter(r => String(r['Omnet']||'').trim().toUpperCase() === fo);
+  if (s)  rows = rows.filter(r => Object.values(r).some(v => String(v||'').toLowerCase().includes(s)));
+  const shown = rows.slice(0,300);
+  document.getElementById('tbDet').innerHTML = shown.length ? `
+    <div style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-bottom:10px">
+      Mostrando ${shown.length} de ${rows.length} filas${rows.length>300?' (máx 300)':''}
+    </div>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Fecha</th><th>Medio</th><th>Vehículo</th><th>Proveedor</th><th>Campaña</th><th>Marca</th><th>Etapa</th><th class="num">Bruto</th><th class="num">Valor real</th><th>Omnet</th></tr></thead>
+      <tbody>${shown.map(r=>{
+        const vb=getValBruto(r), vr=getValReal(r);
+        const om=String(r['Omnet']||'').trim().toUpperCase();
+        const fecha=r['Fecha']?String(r['Fecha']).substring(0,10):'—';
+        return`<tr>
+          <td style="font-size:11px">${fecha}</td>
+          <td><span class="tag medio" style="font-size:9px">${r['Medio']||'—'}</span></td>
+          <td style="font-size:11px">${getVehiculo(r)||'—'}</td>
+          <td style="font-size:10px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${r['Proveedor']||''}">${(r['Proveedor']||'—').substring(0,22)}</td>
+          <td style="font-size:11px">${getCampana(r)||'—'}</td>
+          <td style="font-size:11px">${r['Marca']||'—'}</td>
+          <td style="font-size:10px">${r['Etapa']||'—'}</td>
+          <td class="num c-green">${vb?fmt(vb):'—'}</td>
+          <td class="num c-yellow">${vr?fmt(vr):'—'}</td>
+          <td><span class="tag ${om==='SI'?'si':'no'}">${om||'—'}</span></td></tr>`;}).join('')}
+      </tbody></table></div>` : '<div class="empty-state">Sin resultados</div>';
+}
+
+function resetAll() {
+  DATA = [];
+  document.getElementById('results').classList.remove('visible');
+  document.getElementById('fileInput').value = '';
+  setStatus('Esperando archivo...', '');
+  setProgress(0);
+}
+</script>
+</body>
+</html>
